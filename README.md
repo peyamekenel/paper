@@ -190,7 +190,7 @@ This is a research/educational project. Feel free to:
 - Experiment with different models
 - Try different alpha values
 - Add new evaluation metrics
-- Implement Phase 3 features (MMR, learned fusion, API)
+- Implement Phase 3 features (MMR, API)
 
 ## 📝 License
 
