@@ -1,5 +1,6 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Iterator, Dict, Any
 from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy.helpers import bulk
 import numpy as np
 
 
@@ -12,6 +13,9 @@ class OpenSearchVectorStore:
         http_auth: Optional[Tuple[str, str]] = None,
         index_name: str = "movies",
         embedding_dim: int = 384,
+        timeout: int = 30,
+        max_retries: int = 3,
+        retry_on_timeout: bool = True,
     ):
         self.client = OpenSearch(
             hosts=[{"host": host, "port": port}],
@@ -19,12 +23,15 @@ class OpenSearchVectorStore:
             use_ssl=use_ssl,
             verify_certs=True,
             connection_class=RequestsHttpConnection,
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_on_timeout=retry_on_timeout,
         )
         self.index_name = index_name
         self.embedding_dim = embedding_dim
 
     def ensure_index(self) -> None:
-        if self.client.indices.exists(self.index_name):
+        if self.client.indices.exists(index=self.index_name):
             return
         body = {
             "settings": {"index": {"knn": True}},
@@ -47,28 +54,30 @@ class OpenSearchVectorStore:
         }
         self.client.indices.create(index=self.index_name, body=body)
 
-    def index_documents(self, df, embeddings: np.ndarray, batch_size: int = 1000) -> None:
-        actions = []
+    def _doc_actions(self, df, embeddings: np.ndarray) -> Iterator[Dict[str, Any]]:
         for i, row in df.iterrows():
-            doc = {
-                "title": row["title"],
-                "title_with_year": row["title_with_year"],
-                "tags": row.get("tags", ""),
-                "embedding": embeddings[i].tolist(),
+            yield {
+                "_op_type": "index",
+                "_index": self.index_name,
+                "_id": int(i),
+                "_source": {
+                    "title": row["title"],
+                    "title_with_year": row["title_with_year"],
+                    "tags": row.get("tags", ""),
+                    "embedding": embeddings[i].tolist(),
+                },
             }
-            actions.append({"index": {"_index": self.index_name, "_id": int(i)}})
-            actions.append(doc)
-            if len(actions) >= 2 * batch_size:
-                self.client.bulk(body=actions)
-                actions = []
-        if actions:
-            self.client.bulk(body=actions)
+
+    def index_documents(self, df, embeddings: np.ndarray, chunk_size: int = 1000, request_timeout: int = 60) -> None:
+        bulk(self.client, self._doc_actions(df, embeddings), chunk_size=chunk_size, request_timeout=request_timeout)
         self.client.indices.refresh(index=self.index_name)
 
     def knn_query_by_id(self, id_: int, k: int = 10) -> List[Tuple[int, float]]:
         src = self.client.get(index=self.index_name, id=int(id_))["_source"]
         vec = src["embedding"]
-        return self.knn_query(vec, k=k)
+        results = self.knn_query(vec, k=k + 1)
+        filtered = [(i, s) for (i, s) in results if i != int(id_)]
+        return filtered[:k]
 
     def knn_query(self, vector: List[float], k: int = 10) -> List[Tuple[int, float]]:
         body = {
