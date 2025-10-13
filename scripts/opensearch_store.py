@@ -55,15 +55,15 @@ class OpenSearchVectorStore:
         self.client.indices.create(index=self.index_name, body=body)
 
     def _doc_actions(self, df, embeddings: np.ndarray) -> Iterator[Dict[str, Any]]:
-        for i, row in df.iterrows():
+        for i, row in enumerate(df.itertuples(index=False)):
             yield {
                 "_op_type": "index",
                 "_index": self.index_name,
                 "_id": int(i),
                 "_source": {
-                    "title": row["title"],
-                    "title_with_year": row["title_with_year"],
-                    "tags": row.get("tags", ""),
+                    "title": getattr(row, "title"),
+                    "title_with_year": getattr(row, "title_with_year"),
+                    "tags": getattr(row, "tags", ""),
                     "embedding": embeddings[i].tolist(),
                 },
             }
