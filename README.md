@@ -203,13 +203,6 @@ Run with `--evaluate` to get:
 - **Caching:** O(1) lookup vs O(N) computation
 - **Memory:** ~20 MB (cached) vs ~185 MB (full matrices)
 
-## 📚 Documentation
-
-- **Quick Start:** This README
-- **Phase 1 Guide:** `PHASE1_IMPROVEMENTS.md`
-- **Phase 2 Guide:** `PHASE2_GUIDE.md`
-- **Quick Reference:** `QUICK_REFERENCE.md`
-
 ## 🚦 Dependencies
 
 Core:
@@ -265,15 +258,6 @@ python -m scripts.run_pipeline \
   --use_mmr \
   --use_learned_fusion
 ```
-
-## 🔜 Future Enhancements (Phase 4)
-
-- [ ] Contextual filtering (genre, year, rating)
-- [ ] REST API with FastAPI
-- [ ] A/B testing framework
-- [ ] User preference learning
-- [ ] Real-time personalization
-
 ---
 
 **Built with:** Python, BERT, FAISS, sentence-transformers  
