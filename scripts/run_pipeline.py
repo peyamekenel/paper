@@ -82,9 +82,11 @@ def main():
         tfidf = sparse.load_npz(tfidf_path)
         vectorizer = joblib.load(os.path.join(args.outdir, "tfidf_vectorizer.joblib"))
     else:
+        ngram_range_cfg = config.get('tfidf.ngram_range', [1, 2])
+        ngram_range = (int(ngram_range_cfg[0]), int(ngram_range_cfg[1]))
         vectorizer = TfidfVectorizer(
             max_features=config.get('tfidf.max_features', 50000),
-            ngram_range=tuple(config.get('tfidf.ngram_range', [1, 2]))
+            ngram_range=ngram_range
         )
         tfidf = vectorizer.fit_transform(df["tags"].tolist())
         sparse.save_npz(tfidf_path, tfidf)

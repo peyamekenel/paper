@@ -44,9 +44,9 @@ The pipeline will create the index and ingest embeddings automatically.
 
 | Metric | Value |
 |--------|-------|
-| **Pipeline Execution** | ~10s (with cache) |
-| **Recommendation Lookup** | < 1ms (cached) |
-| **Memory Usage** | ~20 MB (cached) |
+| **Pipeline Execution** | ~10s |
+| **Recommendation Lookup** | Fast |
+| **Memory Usage** | ~20 MB |
 | **Scalability** | Millions of movies |
 
 ## ⚙️ Configuration
