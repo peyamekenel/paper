@@ -1,0 +1,30 @@
+# Core ML and Data Processing
+numpy>=1.21.0,<2.0.0
+pandas>=1.3.0,<2.0.0
+scipy>=1.7.0,<2.0.0
+scikit-learn>=1.0.0,<2.0.0
+
+# PyTorch (compatible with Python 3.9)
+torch>=1.9.0,<2.5.0
+
+# Transformers (use version compatible with Python 3.9)
+transformers>=4.30.0,<4.45.0
+
+# Sentence Transformers (compatible with Python 3.9)
+sentence-transformers>=2.2.0,<3.0.0
+
+# Utilities
+joblib>=1.0.0
+tqdm>=4.62.0
+
+# Data Download
+kagglehub>=0.1.0
+
+# Phase 2: Scalability & Performance
+pyyaml>=6.0  # Configuration management
+faiss-cpu>=1.7.0  # Fast similarity search (use faiss-gpu for GPU support)
+
+# Optional: Advanced features
+# faiss-gpu>=1.7.0  # GPU-accelerated FAISS (requires CUDA)
+
+

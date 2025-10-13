@@ -1,0 +1,64 @@
+# Movie Recommendation System Configuration
+
+# Model Settings
+model:
+  name: "all-MiniLM-L6-v2"  # sentence-transformers model
+  batch_size: 32
+  max_length: 256
+  device: "auto"  # auto, cuda, or cpu
+
+# TF-IDF Settings
+tfidf:
+  max_features: 50000
+  ngram_range: [1, 2]  # unigrams and bigrams
+  min_df: 1
+  max_df: 0.95
+
+# Feature Engineering
+features:
+  top_n_cast: 3  # Number of cast members to include
+  top_n_keywords: 10  # Number of keywords for enriched text
+  include_director: true
+  include_genres: true
+  include_keywords: true
+
+# Similarity & Fusion
+similarity:
+  alpha: 0.5  # Weight for combining BERT and TF-IDF (0.5 = equal weight)
+  use_faiss: true  # Use FAISS for fast similarity search
+  faiss_index_type: "Flat"  # Flat (exact) or IVF (approximate)
+  
+# Recommendations
+recommendations:
+  default_k: 10  # Default number of recommendations
+  cache_top_k: 100  # Pre-compute top-100 similar movies for each movie
+  min_similarity: 0.0  # Minimum similarity threshold
+  
+  # Phase 3: Diversity (MMR)
+  use_mmr: false  # Enable MMR diversity re-ranking
+  mmr_lambda: 0.5  # MMR parameter: 0.0=max diversity, 1.0=max relevance
+  mmr_pool_size: 100  # Initial candidate pool size for MMR
+  
+  # Phase 3: Learned Fusion
+  use_learned_fusion: false  # Use ML model instead of fixed alpha
+  fusion_model_type: "gbm"  # Model: gbm, rf, ridge, lasso
+  fusion_train_samples: 1000  # Training sample size
+
+# Performance
+performance:
+  use_cache: true  # Use pre-computed similarity cache
+  save_embeddings: true  # Save embeddings for incremental updates
+  verbose: true  # Print detailed progress
+
+# Evaluation
+evaluation:
+  enabled: false
+  test_movies: []  # List of movie titles for evaluation
+  metrics: ["precision@k", "diversity", "coverage"]
+
+# Paths (can be overridden by CLI)
+paths:
+  output_dir: "outputs"
+  cache_dir: "cache"
+  models_dir: "models"
+
