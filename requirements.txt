@@ -22,9 +22,6 @@ kagglehub>=0.1.0
 
 # Phase 2: Scalability & Performance
 pyyaml>=6.0  # Configuration management
-faiss-cpu>=1.7.0  # Fast similarity search (use faiss-gpu for GPU support)
-
-# Optional: Advanced features
-# faiss-gpu>=1.7.0  # GPU-accelerated FAISS (requires CUDA)
+opensearch-py>=2.0.0
 
 

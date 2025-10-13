@@ -5,10 +5,7 @@ A production-ready content-based movie recommendation system with semantic under
 ## ✨ Features
 
 - **Hybrid Recommendations** - Combines semantic (BERT) and metadata (TF-IDF) approaches
-- **Fast Search** - FAISS-powered similarity search for scalability
-- **Smart Caching** - Pre-computed recommendations for instant lookups
 - **MMR Diversity** - Maximal Marginal Relevance for diverse recommendations
-- **Learned Fusion** - ML-based optimization of signal combination
 - **Configurable** - Easy parameter tuning via YAML config
 - **Evaluation Metrics** - Objective quality measurement
 
@@ -27,26 +24,23 @@ pip install -r requirements.txt
 python -m scripts.run_pipeline \
   --movies datasets/tmdb_5000_movies.csv \
   --credits datasets/tmdb_5000_credits.csv \
-  --outdir outputs \
-  --use_cache
+  --outdir outputs
 ```
 
-### 3. Get Instant Recommendations
-
-```python
-from scripts.cache import RecommendationCache
-
-# Load pre-computed cache
-cache = RecommendationCache('cache')
-cache.load()
-
-# Get recommendations (< 1ms)
-recs = cache.get_recommendations('Inception', k=10)
-for i, (title, score) in enumerate(recs, 1):
-    print(f"{i}. {title} ({score:.4f})")
-```
 
 ## 📊 Performance
+
+## 🔌 OpenSearch Setup
+
+Set environment variables before running:
+
+```bash
+export OPENSEARCH_HOST="your-domain.us-east-1.es.amazonaws.com"
+# Optional basic auth:
+# export OPENSEARCH_BASIC_AUTH="username:password"
+```
+
+The pipeline will create the index and ingest embeddings automatically.
 
 | Metric | Value |
 |--------|-------|
@@ -66,11 +60,9 @@ model:
 
 similarity:
   alpha: 0.5  # BERT vs TF-IDF weight (0-1)
-  use_faiss: true
 
 recommendations:
   default_k: 10
-  cache_top_k: 100
 ```
 
 ## 🎯 Command-Line Options
@@ -82,20 +74,7 @@ python -m scripts.run_pipeline \
   --credits <path> \
   --outdir <path>
 
-# With caching (recommended)
-python -m scripts.run_pipeline \
-  --movies <path> \
-  --credits <path> \
-  --outdir <path> \
-  --use_cache
 
-# With FAISS for large datasets
-python -m scripts.run_pipeline \
-  --movies <path> \
-  --credits <path> \
-  --outdir <path> \
-  --use_faiss \
-  --use_cache
 
 # With evaluation
 python -m scripts.run_pipeline \
@@ -127,20 +106,15 @@ paper/
 │   ├── run_pipeline.py       # Main pipeline
 │   ├── embeddings.py         # BERT/sentence-transformers
 │   ├── similarity.py         # Similarity computation
-│   ├── faiss_similarity.py   # FAISS integration
-│   ├── cache.py              # Caching system
 │   ├── evaluation.py         # Metrics
 │   ├── recommend.py          # Recommendation logic
 │   ├── utils.py              # Data preprocessing
-│   └── config.py             # Config loader
+│   ├── config.py             # Config loader
+│   └── opensearch_store.py   # OpenSearch vector store
 ├── outputs/                   # Generated files
 │   ├── preprocessed.pkl
 │   ├── bert_embeddings.npy
-│   ├── sim_combined.npy
-│   ├── faiss_index.bin
 │   └── recommendations_*.json
-└── cache/                     # Pre-computed cache
-    └── recommendation_cache.pkl
 ```
 
 ## 🔧 How It Works
@@ -161,7 +135,6 @@ paper/
 
 ### 4. Recommendations
 - Find top-K most similar movies
-- Optional: Pre-compute and cache for instant lookups
 
 ## 📈 Example Results
 
@@ -195,13 +168,11 @@ Run with `--evaluate` to get:
 
 ### Algorithms
 - **Similarity:** Cosine similarity on L2-normalized vectors
-- **Search:** FAISS (Facebook AI Similarity Search) for scalability
 - **Fusion:** Linear combination of semantic + metadata signals
 
 ### Scalability
-- **FAISS:** O(log N) search vs O(N) naive scan
-- **Caching:** O(1) lookup vs O(N) computation
-- **Memory:** ~20 MB (cached) vs ~185 MB (full matrices)
+- Designed to work with AWS OpenSearch for semantic kNN search
+- Memory usage focused on TF-IDF and embeddings artifacts
 
 ## 🚦 Dependencies
 
@@ -211,7 +182,6 @@ Core:
 - `joblib`, `pyyaml`
 
 Optional:
-- `faiss-cpu` (or `faiss-gpu`) - For fast similarity search
 - `kagglehub` - For dataset download
 
 ## 🤝 Contributing
@@ -238,29 +208,9 @@ python -m scripts.run_pipeline \
   --use_mmr \
   --mmr_lambda 0.5
 ```
-
-### Learned Fusion
-```bash
-# ML-optimized signal combination
-python -m scripts.run_pipeline \
-  --movies <path> \
-  --credits <path> \
-  --outdir <path> \
-  --use_learned_fusion
-```
-
-### Combined (Best Quality)
-```bash
-python -m scripts.run_pipeline \
-  --movies <path> \
-  --credits <path> \
-  --outdir <path> \
-  --use_mmr \
-  --use_learned_fusion
-```
 ---
 
-**Built with:** Python, BERT, FAISS, sentence-transformers  
+**Built with:** Python, BERT, sentence-transformers, OpenSearch  
 **Dataset:** TMDB 5000 Movie Dataset  
 **Status:** Production Ready ✅
 
