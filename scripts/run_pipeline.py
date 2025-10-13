@@ -1,6 +1,6 @@
 """
 Movie Recommendation System - Unified Pipeline
-OpenSearch-only backend. Cache, Learned Fusion, and FAISS removed.
+OpenSearch-only backend with legacy features removed.
 """
 import argparse
 import json
