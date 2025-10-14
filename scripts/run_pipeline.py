@@ -16,7 +16,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scripts.config import load_config
 from scripts.utils import load_and_preprocess
 from scripts.embeddings import BertEmbedder
-from scripts.similarity import cosine_sim_sparse, minmax_normalize
+from scripts.similarity import minmax_normalize
 from scripts.recommend import recommend_top_k
 from scripts.evaluation import evaluate_recommendations, print_evaluation_report
 from scripts.diversity import recommend_with_mmr, compute_diversity_metrics
@@ -117,25 +117,15 @@ def main():
     
     print(f"  ✓ Embeddings shape: {bert_embs.shape}")
     
-    # ========== 4. SIMILARITY COMPUTATION ==========
-    print(f"\n[4/6] Computing similarities...")
-    sim_tfidf = cosine_sim_sparse(tfidf)
-    np.save(os.path.join(args.outdir, "sim_tfidf.npy"), sim_tfidf)
-
+    # ========== 4. SKIP NxN SIMILARITY COMPUTATION ==========
+    print(f"\n[4/6] Skipping full NxN similarity matrix (computed on-demand per query)")
     
     # ========== 5. EVALUATION ==========
     if args.evaluate:
-        print(f"\n[6/6] Running evaluation...")
-        test_titles = ["The Dark Knight", "Inception", "Avatar", "Toy Story", "The Matrix"]
-        test_cases = [{'title': t} for t in test_titles if t in df['title'].values]
-        
-        metrics = evaluate_recommendations(test_cases, sim_tfidf, df, k=10)
-        print_evaluation_report(metrics)
-        
-        with open(os.path.join(args.outdir, "evaluation_metrics.json"), 'w') as f:
-            json.dump(metrics, f, indent=2)
+        print(f"\n[5/6] Evaluation skipped (requires full similarity matrix)")
+        print(f"  Note: Evaluation functionality removed for scalability")
     else:
-        print(f"\n[6/6] Evaluation disabled (use --evaluate to enable)")
+        print(f"\n[5/6] Evaluation disabled (use --evaluate to enable)")
     
     # ========== DEMO RECOMMENDATIONS ==========
     print(f"\n{'='*70}")
@@ -169,25 +159,46 @@ def main():
         raise ValueError(f"Title '{args.example_title}' not found.")
     q = matches[0]
 
-    knn = os_store.knn_query_by_id(q, k=max(k, 100))
-    cand_indices = [idx for idx, _ in knn if idx != q]
+    mmr_pool_size = config.get('recommendations.mmr_pool_size', 100)
+    knn = os_store.knn_query_by_id(q, k=max(k, mmr_pool_size))
+    cand_indices = np.array([idx for idx, _ in knn if idx != q])
     sem_sims = np.array([score for idx, score in knn if idx != q])[: len(cand_indices)]
 
-    tfidf_row = sim_tfidf[q, cand_indices] if hasattr(sim_tfidf, "toarray") else sim_tfidf[q, cand_indices]
-    tfidf_row = np.asarray(tfidf_row).ravel()
+    q_vec = tfidf[q]
+    tfidf_cand = tfidf[cand_indices]
+    tfidf_scores = (tfidf_cand @ q_vec.T).toarray().ravel()
 
     sem_sims_norm = minmax_normalize(sem_sims)
-    tfidf_norm = minmax_normalize(tfidf_row)
+    tfidf_norm = minmax_normalize(tfidf_scores)
 
     alpha = config.get("similarity.alpha", 0.5)
     hybrid_scores = alpha * sem_sims_norm + (1 - alpha) * tfidf_norm
-    top_order = np.argsort(hybrid_scores)[::-1][:k]
-    recs_hybrid = [(df["title"].iloc[cand_indices[i]], float(hybrid_scores[i])) for i in top_order]
-
+    
     if use_mmr:
-        # Compute MMR on candidate set using hybrid scores as relevance and tfidf similarities as diversity proxy
-        recs = {"hybrid": recs_hybrid}
+        from scripts.diversity import mmr_rerank
+        
+        cand_tfidf_sim = (tfidf_cand @ tfidf_cand.T).toarray()
+        
+        mmr_lambda = config.get('recommendations.mmr_lambda', 0.5)
+        selected_local_indices, mmr_scores = mmr_rerank(
+            query_idx=0,
+            candidate_indices=np.arange(len(cand_indices)),
+            candidate_scores=hybrid_scores,
+            similarity_matrix=cand_tfidf_sim,
+            k=k,
+            lambda_param=mmr_lambda
+        )
+        
+        mmr_global_indices = cand_indices[selected_local_indices]
+        recs_mmr = [(df["title"].iloc[idx], float(score)) for idx, score in zip(mmr_global_indices, mmr_scores)]
+        
+        top_order = np.argsort(hybrid_scores)[::-1][:k]
+        recs_hybrid = [(df["title"].iloc[cand_indices[i]], float(hybrid_scores[i])) for i in top_order]
+        
+        recs = {"hybrid": recs_hybrid, "mmr": recs_mmr}
     else:
+        top_order = np.argsort(hybrid_scores)[::-1][:k]
+        recs_hybrid = [(df["title"].iloc[cand_indices[i]], float(hybrid_scores[i])) for i in top_order]
         recs = {"hybrid": recs_hybrid}
     
     # Save recommendations

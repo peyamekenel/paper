@@ -25,9 +25,14 @@ def recommend_top_k(
     if title not in title_to_idx:
         raise ValueError(f"Title '{title}' not found.")
     idx = title_to_idx[title]
-    sims = sim_matrix[idx]
+    sims = sim_matrix[idx].copy()  # Copy to avoid mutating the original matrix
     sims[idx] = -1.0
-    top_idx = np.argsort(sims)[::-1][:k]
+    
+    if k < len(sims):
+        top_idx = np.argpartition(sims, -k)[-k:]
+        top_idx = top_idx[np.argsort(sims[top_idx])[::-1]]
+    else:
+        top_idx = np.argsort(sims)[::-1][:k]
     
     # Use title_with_year for display if available, otherwise fall back to title
     if "title_with_year" in df.columns:

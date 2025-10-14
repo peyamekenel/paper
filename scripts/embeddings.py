@@ -30,12 +30,16 @@ class BertEmbedder:
         Returns:
             numpy array of shape (len(texts), embedding_dim) with L2-normalized embeddings
         """
-        # sentence-transformers handles batching, normalization, and progress internally
+        try:
+            self.model.max_seq_length = max_length
+        except AttributeError:
+            pass
+        
         embeddings = self.model.encode(
             texts,
             batch_size=batch_size,
             show_progress_bar=show_progress,
-            normalize_embeddings=True,  # L2 normalization for cosine similarity
+            normalize_embeddings=True,
             convert_to_numpy=True
         )
         return embeddings
