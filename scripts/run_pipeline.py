@@ -147,11 +147,10 @@ def main():
 
     host = os.getenv("OPENSEARCH_HOST", config.get("opensearch.host", ""))
     if not host:
-        raise RuntimeError("OpenSearch host not configured. Set OPENSEARCH_HOST env or opensearch.host in config.")
+        raise RuntimeError("OpenSearch host not configured. Set OPENSEARCH_HOST in .env file or opensearch.host in config.")
     port = int(os.getenv("OPENSEARCH_PORT", config.get("opensearch.port", 443)))
-    index_name = config.get("opensearch.index_name", "movies")
-    auth_env_name = config.get("opensearch.http_auth_env", "OPENSEARCH_BASIC_AUTH")
-    auth_env = os.getenv(auth_env_name, "")
+    index_name = os.getenv("OPENSEARCH_INDEX_NAME", config.get("opensearch.index_name", "movies"))
+    auth_env = os.getenv("OPENSEARCH_BASIC_AUTH", "")
     http_auth = tuple(auth_env.split(":", 1)) if auth_env else None
 
     os_store = OpenSearchVectorStore(
