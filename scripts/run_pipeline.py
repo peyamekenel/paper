@@ -16,7 +16,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scripts.config import load_config
 from scripts.utils import load_and_preprocess
 from scripts.embeddings import BertEmbedder
-from scripts.similarity import cosine_sim_sparse
+from scripts.similarity import cosine_sim_sparse, minmax_normalize
 from scripts.recommend import recommend_top_k
 from scripts.evaluation import evaluate_recommendations, print_evaluation_report
 from scripts.diversity import recommend_with_mmr, compute_diversity_metrics
@@ -176,8 +176,11 @@ def main():
     tfidf_row = sim_tfidf[q, cand_indices] if hasattr(sim_tfidf, "toarray") else sim_tfidf[q, cand_indices]
     tfidf_row = np.asarray(tfidf_row).ravel()
 
+    sem_sims_norm = minmax_normalize(sem_sims)
+    tfidf_norm = minmax_normalize(tfidf_row)
+
     alpha = config.get("similarity.alpha", 0.5)
-    hybrid_scores = alpha * sem_sims + (1 - alpha) * tfidf_row
+    hybrid_scores = alpha * sem_sims_norm + (1 - alpha) * tfidf_norm
     top_order = np.argsort(hybrid_scores)[::-1][:k]
     recs_hybrid = [(df["title"].iloc[cand_indices[i]], float(hybrid_scores[i])) for i in top_order]
 
