@@ -45,13 +45,24 @@ python -m scripts.run_pipeline \
 
 ## 📊 Performance
 
-
 | Metric | Value |
 |--------|-------|
-| **Pipeline Execution** | ~10s |
+| **Pipeline Execution (first run)** | ~10s |
+| **Pipeline Execution (cached)** | <1s |
 | **Recommendation Lookup** | Fast |
-| **Memory Usage** | ~20 MB |
+| **Memory Usage** | Reduced with float32 |
 | **Scalability** | Millions of movies |
+
+### Automatic Caching
+
+The pipeline uses intelligent manifest-based caching to skip recomputation when possible:
+
+- **Data preprocessing** is reused if input CSV files haven't changed
+- **TF-IDF features** are reused if data and TF-IDF config are unchanged
+- **BERT embeddings** are reused if data and model config are unchanged
+- **OpenSearch indexing** is skipped if index is up-to-date with current data/model
+
+This makes subsequent runs extremely fast when only tuning ranking parameters (`alpha`, `k`, `mmr_lambda`).
 
 ## ⚙️ Configuration
 
@@ -78,8 +89,6 @@ python -m scripts.run_pipeline \
   --credits <path> \
   --outdir <path>
 
-
-
 # With evaluation
 python -m scripts.run_pipeline \
   --movies <path> \
@@ -87,13 +96,26 @@ python -m scripts.run_pipeline \
   --outdir <path> \
   --evaluate
 
-# Tune alpha parameter
+# Tune alpha parameter (uses automatic caching)
 python -m scripts.run_pipeline \
   --movies <path> \
   --credits <path> \
   --outdir <path> \
-  --skip_embeddings \
   --alpha 0.7
+
+# Force recompute everything
+python -m scripts.run_pipeline \
+  --movies <path> \
+  --credits <path> \
+  --outdir <path> \
+  --recompute always
+
+# Force use cached artifacts (error if not available)
+python -m scripts.run_pipeline \
+  --movies <path> \
+  --credits <path> \
+  --outdir <path> \
+  --recompute never
 ```
 
 ## 📁 Project Structure
@@ -116,8 +138,11 @@ paper/
 │   ├── config.py             # Config loader
 │   └── opensearch_store.py   # OpenSearch vector store
 ├── outputs/                   # Generated files
+│   ├── manifest.json          # Cache manifest (auto-generated)
 │   ├── preprocessed.pkl
 │   ├── bert_embeddings.npy
+│   ├── tfidf_matrix.npz
+│   ├── tfidf_vectorizer.joblib
 │   └── recommendations_*.json
 ```
 
