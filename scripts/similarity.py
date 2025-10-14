@@ -15,18 +15,22 @@ def minmax_normalize(scores: np.ndarray, epsilon: float = 1e-8) -> np.ndarray:
     """
     Apply min-max normalization to scale scores to [0, 1] range.
     
+    If the score range is degenerate (all values equal or non-finite),
+    returns a zero vector to avoid distorting the hybrid ranking.
+    
     Args:
         scores: Array of scores to normalize
         epsilon: Small value to prevent division by zero
     
     Returns:
-        Normalized scores in [0, 1] range
+        Normalized scores in [0, 1] range, or zeros if degenerate
     """
-    min_score = scores.min()
-    max_score = scores.max()
-    score_range = max_score - min_score
+    scores = np.asarray(scores, dtype=float)
+    mn = np.nanmin(scores)
+    mx = np.nanmax(scores)
+    rng = mx - mn
     
-    if score_range < epsilon:
-        return np.ones_like(scores)
+    if not np.isfinite(mn) or not np.isfinite(mx) or rng < epsilon:
+        return np.zeros_like(scores)
     
-    return (scores - min_score) / (score_range + epsilon)
+    return (scores - mn) / (rng + epsilon)
