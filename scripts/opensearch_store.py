@@ -46,7 +46,7 @@ class OpenSearchVectorStore:
                         "method": {
                             "name": "hnsw",
                             "space_type": "cosinesimil",
-                            "engine": "nmslib",
+                            "engine": "faiss",
                         },
                     },
                 }
