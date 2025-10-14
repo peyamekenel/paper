@@ -18,7 +18,22 @@ A production-ready content-based movie recommendation system with semantic under
 pip install -r requirements.txt
 ```
 
-### 2. Run the Pipeline
+### 2. Configure Environment Variables
+
+Create a `.env` file in the project root with your OpenSearch credentials:
+
+```bash
+# OpenSearch connection details
+OPENSEARCH_HOST="your-domain.region.on.aws"
+OPENSEARCH_PORT="443"
+OPENSEARCH_BASIC_AUTH="username:password"
+OPENSEARCH_INDEX_NAME="movies"
+OPENSEARCH_REGION="your-region"
+```
+
+See `.env.example` for a complete template.
+
+### 3. Run the Pipeline
 
 ```bash
 python -m scripts.run_pipeline \
@@ -30,17 +45,6 @@ python -m scripts.run_pipeline \
 
 ## 📊 Performance
 
-## 🔌 OpenSearch Setup
-
-Set environment variables before running:
-
-```bash
-export OPENSEARCH_HOST="your-domain.us-east-1.es.amazonaws.com"
-# Optional basic auth:
-# export OPENSEARCH_BASIC_AUTH="username:password"
-```
-
-The pipeline will create the index and ingest embeddings automatically.
 
 | Metric | Value |
 |--------|-------|
