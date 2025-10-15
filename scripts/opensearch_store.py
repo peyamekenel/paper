@@ -71,7 +71,7 @@ class OpenSearchVectorStore:
 
     def get_doc_count(self) -> int:
         """Get document count in index."""
-        s = self.client.cat.count(self.index_name, format="json")
+        s = self.client.cat.count(index=self.index_name, format="json")
         return int(s[0]["count"])
 
     def _doc_actions(self, df, embeddings: np.ndarray) -> Iterator[Dict[str, Any]]:
