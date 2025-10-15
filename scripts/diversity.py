@@ -66,8 +66,12 @@ def mmr_rerank(
             else:
                 # Max similarity to already selected items
                 selected_global_indices = [candidate_indices[j] for j in selected_indices]
-                similarities_to_selected = similarity_matrix[candidate_idx, selected_global_indices]
-                diversity_penalty = np.max(similarities_to_selected)
+                if hasattr(similarity_matrix, "getrow"):
+                    row = similarity_matrix.getrow(candidate_idx)[:, selected_global_indices]
+                    diversity_penalty = float(row.max()) if row.nnz else 0.0
+                else:
+                    similarities_to_selected = similarity_matrix[candidate_idx, selected_global_indices]
+                    diversity_penalty = float(np.max(similarities_to_selected))
             
             # MMR score
             mmr_score = lambda_param * relevance_score - (1 - lambda_param) * diversity_penalty
