@@ -159,3 +159,12 @@ class OpenSearchVectorStore:
         for hit in res["hits"]["hits"]:
             results.append((int(hit["_id"]), float(hit["_score"])))
         return results
+
+    def knn_query_vector(self, vector: List[float], k: int = 10) -> List[Tuple[int, float]]:
+        body = {
+            "size": k,
+            "query": {"knn": {"embedding": {"vector": vector, "k": k}}},
+            "_source": False,
+        }
+        res = self.client.search(index=self.index_name, body=body)
+        return [(int(h["_id"]), float(h["_score"])) for h in res["hits"]["hits"]]

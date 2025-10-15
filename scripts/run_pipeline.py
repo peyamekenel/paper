@@ -250,7 +250,7 @@ def main():
     mmr_pool_size = config.get('recommendations.mmr_pool_size', 100)
     q_movie_id = int(df.iloc[q]["movie_id"])
     q_emb = bert_embs[q].tolist()
-    knn = os_store.knn_query(q_emb, k=max(k, mmr_pool_size) + 1)
+    knn = os_store.knn_query_vector(q_emb, k=max(k, mmr_pool_size) + 1)
     
     movie_id_to_idx = {int(mid): i for i, mid in enumerate(df["movie_id"])}
     cand_movie_ids = [mid for mid, _ in knn if mid != q_movie_id]
@@ -269,8 +269,9 @@ def main():
     
     if use_mmr:
         from scripts.diversity import mmr_rerank
+        from sklearn.metrics.pairwise import cosine_similarity
         
-        cand_tfidf_sim = (tfidf_cand @ tfidf_cand.T).toarray()
+        cand_tfidf_sim = cosine_similarity(tfidf_cand, dense_output=False)
         
         mmr_lambda = config.get('recommendations.mmr_lambda', 0.5)
         selected_local_indices, mmr_scores = mmr_rerank(
