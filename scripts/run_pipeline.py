@@ -17,7 +17,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scripts.config import load_config
 from scripts.utils import load_and_preprocess
 from scripts.embeddings import BertEmbedder
-from scripts.similarity import minmax_normalize
+from scripts.similarity import minmax_normalize, hybrid_fusion_zscore
 from scripts.recommend import recommend_top_k
 from scripts.evaluation import evaluate_recommendations, print_evaluation_report
 from scripts.diversity import recommend_with_mmr, compute_diversity_metrics
@@ -97,8 +97,8 @@ def main():
     if args.mmr_lambda is not None:
         config.set('recommendations.mmr_lambda', args.mmr_lambda)
     
-    # Create directories
-    os.makedirs(args.outdir, exist_ok=True)
+    outdir = config.get('paths.output_dir')
+    os.makedirs(outdir, exist_ok=True)
     cache_dir = config.get('paths.cache_dir', 'cache')
     os.makedirs(cache_dir, exist_ok=True)
     
@@ -110,7 +110,7 @@ def main():
     
     # ========== MANIFEST SETUP ==========
     print(f"\n[0/6] Checking cache manifest...")
-    manifest_prev = _load_manifest(args.outdir)
+    manifest_prev = _load_manifest(outdir)
     
     data_sig = {
         "movies_hash": _hash_file(args.movies),
@@ -128,7 +128,7 @@ def main():
     
     # ========== 1. DATA LOADING ==========
     print(f"\n[1/6] Loading and preprocessing data...")
-    preproc_path = os.path.join(args.outdir, "preprocessed.pkl")
+    preproc_path = os.path.join(outdir, "preprocessed.pkl")
     reuse_df = (not force_recompute and 
                 manifest_prev.get("data") == data_sig and 
                 os.path.exists(preproc_path))
@@ -146,8 +146,8 @@ def main():
     
     # ========== 2. TF-IDF FEATURES ==========
     print(f"\n[2/6] Building TF-IDF features...")
-    tfidf_path = os.path.join(args.outdir, "tfidf_matrix.npz")
-    tfidf_vec_path = os.path.join(args.outdir, "tfidf_vectorizer.joblib")
+    tfidf_path = os.path.join(outdir, "tfidf_matrix.npz")
+    tfidf_vec_path = os.path.join(outdir, "tfidf_vectorizer.joblib")
     
     reuse_tfidf = (not force_recompute and 
                    reuse_df and 
@@ -175,7 +175,7 @@ def main():
     
     # ========== 3. SEMANTIC EMBEDDINGS ==========
     print(f"\n[3/6] Encoding semantic embeddings...")
-    embeddings_path = os.path.join(args.outdir, "bert_embeddings.npy")
+    embeddings_path = os.path.join(outdir, "bert_embeddings.npy")
     
     reuse_emb = (not force_recompute and 
                  reuse_df and 
@@ -197,7 +197,7 @@ def main():
     
     print(f"  ✓ Embeddings shape: {bert_embs.shape}, dtype: {bert_embs.dtype}")
     
-    _save_manifest(args.outdir, manifest)
+    _save_manifest(outdir, manifest)
     
     # ========== 4. SKIP NxN SIMILARITY COMPUTATION ==========
     print(f"\n[4/6] Skipping full NxN similarity matrix (computed on-demand per query)")
@@ -261,11 +261,8 @@ def main():
     tfidf_cand = tfidf[cand_indices]
     tfidf_scores = (tfidf_cand @ q_vec.T).toarray().ravel()
 
-    sem_sims_norm = minmax_normalize(sem_sims)
-    tfidf_norm = minmax_normalize(tfidf_scores)
-
     alpha = config.get("similarity.alpha", 0.5)
-    hybrid_scores = alpha * sem_sims_norm + (1 - alpha) * tfidf_norm
+    hybrid_scores = hybrid_fusion_zscore(sem_sims, tfidf_scores, alpha)
     
     if use_mmr:
         from scripts.diversity import mmr_rerank
@@ -273,14 +270,21 @@ def main():
         
         cand_tfidf_sim = cosine_similarity(tfidf_cand, dense_output=False)
         
+        cand_embs = bert_embs[cand_indices]
+        cand_semantic_sim = cosine_similarity(cand_embs)
+        
         mmr_lambda = config.get('recommendations.mmr_lambda', 0.5)
+        diversity_alpha = config.get('recommendations.diversity_alpha', 0.5)
+        
         selected_local_indices, mmr_scores = mmr_rerank(
             query_idx=0,
             candidate_indices=np.arange(len(cand_indices)),
             candidate_scores=hybrid_scores,
             similarity_matrix=cand_tfidf_sim,
             k=k,
-            lambda_param=mmr_lambda
+            lambda_param=mmr_lambda,
+            semantic_similarity_matrix=cand_semantic_sim,
+            diversity_alpha=diversity_alpha
         )
         
         mmr_global_indices = cand_indices[selected_local_indices]
@@ -296,7 +300,7 @@ def main():
         recs = {"hybrid": recs_hybrid}
     
     # Save recommendations
-    output_file = os.path.join(args.outdir, f"recommendations_{args.example_title.replace(' ', '_')}.json")
+    output_file = os.path.join(outdir, f"recommendations_{args.example_title.replace(' ', '_')}.json")
     with open(output_file, "w") as f:
         json.dump(recs, f, indent=2)
     
@@ -312,7 +316,7 @@ def main():
     print(f"✅ Pipeline Complete!")
     print(f"{'='*70}")
     print(f"  Movies processed: {len(df)}")
-    print(f"  Output directory: {args.outdir}")
+    print(f"  Output directory: {outdir}")
     print(f"  Recommendations: {output_file}")
     print(f"  Execution time: {elapsed_time:.1f}s")
     print(f"  MMR diversity: {use_mmr}")

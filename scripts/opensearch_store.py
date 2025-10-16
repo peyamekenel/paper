@@ -30,9 +30,26 @@ class OpenSearchVectorStore:
         self.index_name = index_name
         self.embedding_dim = embedding_dim
 
+    def _get_index_dimension(self) -> Optional[int]:
+        if not self.client.indices.exists(index=self.index_name):
+            return None
+        try:
+            mapping = self.client.indices.get_mapping(index=self.index_name)
+            embedding_props = mapping[self.index_name]["mappings"]["properties"]["embedding"]
+            return int(embedding_props.get("dimension", 0))
+        except Exception:
+            return None
+
     def ensure_index(self) -> None:
         if self.client.indices.exists(index=self.index_name):
-            return
+            existing_dim = self._get_index_dimension()
+            if existing_dim is not None and existing_dim != self.embedding_dim:
+                print(f"  ⚠️  Index dimension mismatch: existing={existing_dim}, required={self.embedding_dim}")
+                print(f"  Deleting and recreating index '{self.index_name}'...")
+                self.client.indices.delete(index=self.index_name)
+            else:
+                return
+        
         body = {
             "settings": {"index": {"knn": True}},
             "mappings": {
