@@ -13,7 +13,9 @@ def mmr_rerank(
     candidate_scores: np.ndarray,
     similarity_matrix: np.ndarray,
     k: int,
-    lambda_param: float = 0.5
+    lambda_param: float = 0.5,
+    semantic_similarity_matrix: np.ndarray = None,
+    diversity_alpha: float = 0.5
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Re-rank recommendations using Maximal Marginal Relevance (MMR).
@@ -24,16 +26,22 @@ def mmr_rerank(
     
     Formula: MMR = argmax[λ × Sim(d, q) - (1-λ) × max(Sim(d, d_i))]
     
+    Supports multi-view diversity: combines semantic and TF-IDF similarities
+    for more robust diversity penalty.
+    
     Args:
         query_idx: Index of the query item
         candidate_indices: Indices of candidate items (sorted by relevance)
         candidate_scores: Relevance scores for candidates
-        similarity_matrix: Full similarity matrix (N x N)
+        similarity_matrix: TF-IDF similarity matrix (N x N) for diversity
         k: Number of items to select
         lambda_param: Tradeoff between relevance and diversity
                      - λ=1.0: Pure relevance (no diversity)
                      - λ=0.5: Balanced
                      - λ=0.0: Pure diversity (not recommended)
+        semantic_similarity_matrix: Optional semantic similarity matrix for multi-view diversity
+        diversity_alpha: Weight for semantic vs TF-IDF in diversity penalty (0-1)
+                        Only used if semantic_similarity_matrix is provided
     
     Returns:
         Tuple of (selected_indices, mmr_scores)
@@ -66,12 +74,21 @@ def mmr_rerank(
             else:
                 # Max similarity to already selected items
                 selected_global_indices = [candidate_indices[j] for j in selected_indices]
+                
+                # TF-IDF diversity penalty
                 if hasattr(similarity_matrix, "getrow"):
                     row = similarity_matrix.getrow(candidate_idx)[:, selected_global_indices]
-                    diversity_penalty = float(row.max()) if row.nnz else 0.0
+                    tfidf_penalty = float(row.max()) if row.nnz else 0.0
                 else:
                     similarities_to_selected = similarity_matrix[candidate_idx, selected_global_indices]
-                    diversity_penalty = float(np.max(similarities_to_selected))
+                    tfidf_penalty = float(np.max(similarities_to_selected))
+                
+                if semantic_similarity_matrix is not None:
+                    semantic_sims = semantic_similarity_matrix[candidate_idx, selected_global_indices]
+                    semantic_penalty = float(np.max(semantic_sims))
+                    diversity_penalty = diversity_alpha * semantic_penalty + (1 - diversity_alpha) * tfidf_penalty
+                else:
+                    diversity_penalty = tfidf_penalty
             
             # MMR score
             mmr_score = lambda_param * relevance_score - (1 - lambda_param) * diversity_penalty

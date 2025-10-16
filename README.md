@@ -160,7 +160,7 @@ paper/
 ### 3. Similarity Computation
 - **BERT:** Cosine similarity on embeddings
 - **TF-IDF:** Cosine similarity on sparse vectors
-- **Hybrid:** Weighted combination (α × BERT + (1-α) × TF-IDF)
+- **Hybrid:** Z-score normalized fusion (α × BERT_z + (1-α) × TF-IDF_z) for robustness
 
 ### 4. Recommendations
 - Find top-K most similar movies
@@ -197,7 +197,8 @@ Run with `--evaluate` to get:
 
 ### Algorithms
 - **Similarity:** Cosine similarity on L2-normalized vectors
-- **Fusion:** Linear combination of semantic + metadata signals
+- **Fusion:** Z-score normalized hybrid fusion for robust score combination
+- **Diversity:** Multi-view MMR using both semantic and TF-IDF similarities
 
 ### Scalability
 - Designed to work with AWS OpenSearch for semantic kNN search
